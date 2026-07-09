@@ -1,6 +1,7 @@
-const CACHE_NAME = 'ripasso-cache-v2';
+const CACHE_NAME = 'ripasso-cache-v3';
 const ASSETS = [
-  './ripasso.html',
+  './',
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'

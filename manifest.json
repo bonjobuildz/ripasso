@@ -2,7 +2,7 @@
   "name": "Ripasso",
   "short_name": "Ripasso",
   "description": "A spaced-repetition Italian learning app.",
-  "start_url": "./ripasso.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0A0C0B",
   "theme_color": "#0A0C0B",

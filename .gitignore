@@ -1,2 +1,6 @@
 # copyrighted course material - never publish
 *.pdf
+
+# project docs - keep local
+HANDOFF.md
+Ripasso_PRD.md
