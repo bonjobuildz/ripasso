@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ripasso</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0A0C0B">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0A0C0B; --surface:#141813; --surface-raised:#181D16; --hairline:#262E24;
+    --bone:#E8E4D9; --ash:#7A8479; --ash-dim:#4A5248;
+    --signal:#4F9468; --signal-bright:#7FBE96; --signal-dim:#294633;
+    --alarm:#A61C2E; --alarm-dim:#4d1015; --flag-white:#F2F0E8;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; background:var(--void); color:var(--bone); font-family:'Inter',sans-serif; overflow:hidden; }
+  body{ display:flex; flex-direction:column; min-height:100vh; position:relative; }
+  body::before{ content:""; position:fixed; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px); pointer-events:none; z-index:1; }
+  body::after{ content:""; position:fixed; inset:0; background:radial-gradient(ellipse at 50% 40%, rgba(24,34,26,0.4) 0%, rgba(10,12,11,0.95) 78%); pointer-events:none; z-index:1; }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  header{ position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; padding:calc(18px + env(safe-area-inset-top)) 20px 12px; border-bottom:1px solid var(--hairline); }
+  .brand-col{ display:flex; flex-direction:column; gap:6px; }
+  .brand{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .brand .mark{ font-family:'IBM Plex Mono'; font-size:13px; letter-spacing:.18em; color:var(--signal); }
+  .brand .session{ font-family:'IBM Plex Mono'; font-size:9px; letter-spacing:.08em; color:var(--ash); }
+  .tricolor{ display:flex; width:30px; height:2.5px; }
+  .tricolor span{ flex:1; }
+  .tricolor span:nth-child(1){ background:var(--signal); }
+  .tricolor span:nth-child(2){ background:var(--flag-white); }
+  .tricolor span:nth-child(3){ background:var(--alarm); }
+  .header-right{ display:flex; align-items:center; gap:8px; }
+  .dir-toggle{ font-family:'IBM Plex Mono'; font-size:9px; letter-spacing:.05em; color:var(--signal-bright); border:1px solid var(--hairline); padding:5px 8px; border-radius:2px; background:none; }
+  .dir-toggle:active{ border-color:var(--signal); }
+  .dir-toggle.off{ color:var(--ash-dim); }
+  body.no-hints .front-sub{ display:none; }
+
+  .sections-row{ position:relative; z-index:2; display:flex; align-items:center; gap:6px; padding:10px 20px 0; }
+  .sections-label{ font-family:'IBM Plex Mono'; font-size:8px; letter-spacing:.12em; color:var(--ash-dim); margin-right:2px; }
+  .sec-chip{ font-family:'IBM Plex Mono'; font-size:10px; letter-spacing:.05em; min-width:30px; padding:5px 0; text-align:center; border:1px solid var(--hairline); border-radius:2px; background:none; color:var(--ash-dim); cursor:pointer; transition:color .15s, border-color .15s, background .15s; }
+  .sec-chip.on{ color:var(--signal-bright); border-color:var(--signal); background:var(--signal-dim); }
+  .sec-chip.all{ min-width:38px; }
+
+  .meter-row{ position:relative; z-index:2; padding:12px 20px 0; display:flex; align-items:center; gap:10px; }
+  .meter-track{ flex:1; height:2px; background:var(--hairline); position:relative; overflow:hidden; }
+  .meter-fill{ position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg, var(--signal-dim), var(--signal)); width:0%; transition:width .4s ease; }
+  .meter-label{ font-family:'IBM Plex Mono'; font-size:9px; color:var(--ash); white-space:nowrap; }
+
+  main{ position:relative; z-index:2; flex:1; display:flex; align-items:center; justify-content:center; padding:16px 18px; }
+
+  .card-wrap{ width:100%; max-width:480px; }
+  .card{ position:relative; background:var(--surface); border:1px solid var(--hairline); border-radius:3px; min-height:280px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .card::before{ content:attr(data-id); position:absolute; top:12px; left:14px; font-family:'IBM Plex Mono'; font-size:9px; letter-spacing:.05em; color:var(--ash-dim); }
+  .card::after{ content:"TAP TO REVEAL"; position:absolute; bottom:14px; left:0; right:0; text-align:center; font-family:'IBM Plex Mono'; font-size:8px; letter-spacing:.14em; color:var(--ash-dim); transition:opacity .3s; }
+  .card.revealed::after{ opacity:0; }
+
+  .face{ text-align:center; padding:0 24px; }
+  .front-word{ font-family:'Cormorant Garamond', serif; font-weight:500; font-size:40px; color:var(--bone); line-height:1.15; }
+  .front-sub{ margin-top:8px; font-family:'IBM Plex Mono'; font-size:9px; letter-spacing:.1em; color:var(--ash); text-transform:uppercase; }
+  .answer{ margin-top:16px; font-family:'Cormorant Garamond', serif; font-style:italic; font-size:19px; color:var(--signal-bright); opacity:0; transform:translateY(6px); }
+  .card.revealed .answer{ animation:declass .5s ease forwards; }
+  @keyframes declass{ 0%{opacity:0; transform:translateY(6px); filter:blur(4px);} 100%{opacity:1; transform:translateY(0); filter:blur(0);} }
+  .scan{ position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg, transparent, var(--signal), transparent); opacity:0; pointer-events:none; }
+  .card.revealed .scan{ animation:sweep .5s ease forwards; }
+  @keyframes sweep{ 0%{top:0; opacity:.9;} 100%{top:100%; opacity:0;} }
+
+  .help-fab{ position:absolute; bottom:12px; right:12px; z-index:3; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono'; font-size:13px; font-weight:500; background:var(--surface-raised); border:1px solid var(--hairline); color:var(--signal-bright); }
+
+  .done-screen{ display:none; text-align:center; padding:20px; }
+  .done-screen.show{ display:block; }
+  .done-screen .title{ font-family:'Cormorant Garamond', serif; font-size:28px; color:var(--signal-bright); }
+  .done-screen .sub{ margin-top:10px; font-family:'IBM Plex Mono'; font-size:11px; color:var(--ash); }
+
+  footer{ position:relative; z-index:2; border-top:1px solid var(--hairline); padding:14px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .ratings{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--hairline); max-width:520px; margin:0 auto; border:1px solid var(--hairline); }
+  .rate-btn{ background:var(--surface); border:none; padding:12px 4px 10px; display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--bone); font-family:'Inter'; }
+  .rate-btn:disabled{ opacity:.25; }
+  .rate-label{ font-size:11px; font-weight:500; }
+  .rate-interval{ font-family:'IBM Plex Mono'; font-size:8px; color:var(--ash); }
+  .rate-btn.again .rate-label{ color:var(--alarm); }
+  .rate-btn.easy .rate-label{ color:var(--signal-bright); }
+  .hint{ text-align:center; margin-top:10px; font-family:'IBM Plex Mono'; font-size:8px; color:var(--ash-dim); letter-spacing:.05em; }
+
+  .sheet-overlay{ position:fixed; inset:0; z-index:10; background:rgba(0,0,0,0.5); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity .2s; }
+  .sheet-overlay.open{ opacity:1; pointer-events:auto; }
+  .sheet{ width:100%; max-width:520px; background:var(--surface-raised); border:1px solid var(--hairline); border-bottom:none; border-radius:16px 16px 0 0; padding:16px 20px calc(22px + env(safe-area-inset-bottom)); transform:translateY(20px); transition:transform .2s; }
+  .sheet-overlay.open .sheet{ transform:translateY(0); }
+  .sheet-handle{ width:34px; height:3px; background:var(--hairline); border-radius:2px; margin:0 auto 14px; }
+  .sheet-title{ font-family:'IBM Plex Mono'; font-size:10px; letter-spacing:.08em; color:var(--signal-bright); text-transform:uppercase; margin-bottom:8px; }
+  .sheet-body{ font-size:14px; line-height:1.6; color:var(--bone); }
+  .sheet-close{ margin-top:16px; text-align:center; font-family:'IBM Plex Mono'; font-size:10px; color:var(--ash); border:1px solid var(--hairline); border-radius:14px; padding:8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-col">
+    <div class="brand"><span class="mark">RIPASSO</span><span class="session mono" id="deckLabel">PAUL NOBLE · CORE REVIEW</span></div>
+    <div class="tricolor"><span></span><span></span><span></span></div>
+  </div>
+  <div class="header-right">
+    <button class="dir-toggle mono" id="hintToggle">HINTS ON</button>
+    <button class="dir-toggle mono" id="dirToggle">IT → EN</button>
+  </div>
+</header>
+
+<div class="sections-row" id="sectionsRow">
+  <span class="sections-label">STUDY</span>
+  <button class="sec-chip" data-section="1">1</button>
+  <button class="sec-chip" data-section="2">2</button>
+  <button class="sec-chip" data-section="3">3</button>
+  <button class="sec-chip" data-section="4">4</button>
+  <button class="sec-chip" data-section="5">5</button>
+  <button class="sec-chip all" data-section="all">ALL</button>
+</div>
+
+<div class="meter-row">
+  <span class="meter-label mono" id="cardCount">0 / 0</span>
+  <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+  <span class="meter-label mono" id="streakLabel">streak 0</span>
+</div>
+
+<main>
+  <div class="card-wrap" id="cardWrap">
+    <div class="card" id="card" data-id="">
+      <div class="scan"></div>
+      <div class="face">
+        <div class="front-word" id="frontWord"></div>
+        <div class="front-sub" id="frontSub"></div>
+        <div class="answer" id="answerText"></div>
+      </div>
+      <div class="help-fab" id="helpFab">?</div>
+    </div>
+  </div>
+  <div class="done-screen" id="doneScreen">
+    <div class="title">All caught up</div>
+    <div class="sub" id="doneSub">nothing due right now</div>
+  </div>
+</main>
+
+<footer>
+  <div class="ratings" id="ratingsRow">
+    <button class="rate-btn again" data-grade="1" disabled><span class="rate-label">Again</span><span class="rate-interval mono" id="intAgain">&lt;1d</span></button>
+    <button class="rate-btn" data-grade="2" disabled><span class="rate-label">Hard</span><span class="rate-interval mono" id="intHard">-</span></button>
+    <button class="rate-btn" data-grade="3" disabled><span class="rate-label">Good</span><span class="rate-interval mono" id="intGood">-</span></button>
+    <button class="rate-btn easy" data-grade="4" disabled><span class="rate-label">Easy</span><span class="rate-interval mono" id="intEasy">-</span></button>
+  </div>
+  <div class="hint">SPACE TO REVEAL · 1–4 TO GRADE · TAP ? FOR SECTION CONTEXT</div>
+</footer>
+
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title mono" id="sheetTitle"></div>
+    <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-close mono" id="sheetClose">CLOSE</div>
+  </div>
+</div>
+
+<script>
+/* ---------- FSRS engine (simplified, published default weights) ---------- */
+const W = [0.4,0.6,2.4,5.8,4.93,0.94,0.86,0.01,1.49,0.14,0.94,2.18,0.05,0.34,1.26,0.29,2.61];
+const REQUEST_RETENTION = 0.9;
+function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+function initStability(grade){ return Math.max(W[grade-1], 0.1); }
+function initDifficulty(grade){ return clamp(W[4] - W[5]*(grade-3), 1, 10); }
+function nextDifficulty(d, grade){
+  const delta = -W[6]*(grade-3);
+  let dNew = d + delta*((10-d)/9);
+  dNew = W[7]*initDifficulty(3) + (1-W[7])*dNew;
+  return clamp(dNew, 1, 10);
+}
+function retrievability(elapsedDays, stability){ return Math.pow(1 + elapsedDays/(9*stability), -1); }
+function nextStability(d, s, r, grade){
+  if(grade === 1){
+    const sNew = W[11]*Math.pow(d,-W[12])*(Math.pow(s+1,W[13])-1)*Math.exp(W[14]*(1-r));
+    return Math.max(sNew, 0.1);
+  }
+  const hardPenalty = grade === 2 ? W[15] : 1;
+  const easyBonus = grade === 4 ? W[16] : 1;
+  const sNew = s*(1 + Math.exp(W[8])*(11-d)*Math.pow(s,-W[9])*(Math.exp((1-r)*W[10])-1)*hardPenalty*easyBonus);
+  return Math.max(sNew, 0.1);
+}
+function intervalDaysFor(stability){ return Math.max(1, Math.round(9*stability*(1/REQUEST_RETENTION - 1))); }
+
+function scheduleCard(fsrs, grade, now){
+  const isNew = !fsrs.stability;
+  let elapsed = 0;
+  if(fsrs.last_reviewed){ elapsed = Math.max(0, (now - new Date(fsrs.last_reviewed)) / 86400000); }
+  const r = isNew ? 1 : retrievability(elapsed, fsrs.stability);
+  const d = isNew ? initDifficulty(grade) : nextDifficulty(fsrs.difficulty, grade);
+  const s = isNew ? initStability(grade) : nextStability(fsrs.difficulty, fsrs.stability, r, grade);
+  let dueDays;
+  if(grade === 1){ dueDays = 0; fsrs.lapses = (fsrs.lapses||0) + 1; }
+  else { dueDays = intervalDaysFor(s); }
+  const due = new Date(now.getTime() + dueDays*86400000);
+  fsrs.difficulty = d; fsrs.stability = s; fsrs.due = due.toISOString();
+  fsrs.last_reviewed = now.toISOString();
+  return fsrs;
+}
+function previewIntervals(fsrs, now){
+  const isNew = !fsrs.stability;
+  let elapsed = 0;
+  if(fsrs.last_reviewed){ elapsed = Math.max(0, (now - new Date(fsrs.last_reviewed)) / 86400000); }
+  const r = isNew ? 1 : retrievability(elapsed, fsrs.stability);
+  const out = {};
+  [1,2,3,4].forEach(g=>{
+    const d = isNew ? initDifficulty(g) : nextDifficulty(fsrs.difficulty, g);
+    const s = isNew ? initStability(g) : nextStability(fsrs.difficulty, fsrs.stability, r, g);
+    out[g] = g === 1 ? '<1d' : intervalDaysFor(s) + 'd';
+  });
+  return out;
+}
+
+/* ---------- Sections lookup (Paul Noble · Core Course Review) ---------- */
+const SECTIONS = {
+  "1":{ title:"Section 1 · The Past with AVERE (have)", explain:"The past = a form of avere (ho, hai, ha, abbiamo, avete, hanno) + the past participle. Verbs ending -ARE take the -ato from “tomato” (visitare → visitato); -IRE verbs take the -ito from “mosquito” (capire → capito); -ERE verbs take the -uto from “Pluto” (vendere → venduto). One Italian past covers three English ones: “I visited / I have visited / I did visit” are all Ho visitato. Put non before the verb to negate; to ask a question, just raise your voice." },
+  "2":{ title:"Section 2 · The Past with ESSERE (to be)", explain:"Verbs of going and coming (go, come, arrive, leave, be born, die) build the past with essere instead: “I have arrived” is literally “I am arrived” — Sono arrivato. The ending agrees with who did it: the Mario-Maria rule (-o for a man, -a for a woman), the paparazzi rule (-o → -i for several men, like due risotti) and the A&E rule (-a → -e for several women, like due pizze)." },
+  "3":{ title:"Section 3 · The Present", explain:"Two tools. (1) Launcher words + infinitive: vorrei (I’d like), voglio / vuole… (want), posso / può… (can), devo / deve… (must) — and attach lo or mi to the end of the infinitive (farlo = to do it, capirmi = to understand me). (2) The general present for -ARE verbs: chop off the -are and add -o (I), -i (informal you), -a (he / she / formal you), -iamo (we), -ate (plural you), -ano (they)." },
+  "4":{ title:"Section 4 · The Future", explain:"Step 1: spin the ARE around → ERÀ. Parlerà = he / she / you (formal) will speak. Step 2: swap the -à using “have”: ho → parlerò (I will), hai → parlerai (informal you), hanno → parleranno (they), avete → parlerete (plural you). “We will” is -eremo — the one exception." },
+  "5":{ title:"Section 5 · Travelling in Italy", explain:"The booklet's real-world scenarios — hotel, campsite, taxi, café, restaurant, tourist office — built almost entirely from grammar you already have: vorrei…, posso…, dov'è…, quant'è?, plus per favore and grazie. These are the cards to switch on before a trip." }
+};
+
+/* ---------- Deck: Paul Noble Core Course Review ---------- */
+const DECK = [
+  /* Section 1 · The Past with AVERE */
+  ["PN-101","1","ho","avere · io","I have"],
+  ["PN-102","1","visitato","visitare → past · the -ato from “tomato”","visited"],
+  ["PN-103","1","Ho visitato Roma.","past with avere","I visited / I have visited Rome"],
+  ["PN-104","1","ha","avere · you (formal) / he / she","you have (formal) / he has / she has"],
+  ["PN-105","1","Ha visitato Roma?","questions: just raise your voice","Have you visited Rome? (formal)"],
+  ["PN-106","1","preparato","preparare → past","prepared"],
+  ["PN-107","1","il caffè","noun · masc.","the coffee"],
+  ["PN-108","1","non ho","negation: non goes before the verb","I have not"],
+  ["PN-109","1","Non ho preparato il caffè.","past with avere","I haven't prepared the coffee"],
+  ["PN-110","1","per me / per Lei","preposition","for me / for you (formal)"],
+  ["PN-111","1","il risotto","noun · masc.","the risotto"],
+  ["PN-112","1","la torta","noun · fem.","the cake"],
+  ["PN-113","1","suo padre","possessive","your father (formal)"],
+  ["PN-114","1","sua madre","possessive","your mother (formal)"],
+  ["PN-115","1","preparazione","English -ION → Italian -IONE (~1250 free words)","preparation"],
+  ["PN-116","1","decorato","decorare → past","decorated"],
+  ["PN-117","1","Ho decorato la torta.","one Italian past = three English pasts","I have decorated / I decorated / I did decorate the cake"],
+  ["PN-118","1","invitato","invitare → past","invited"],
+  ["PN-119","1","Ho invitato Paul a Roma.","a Roma = to Rome","I invited Paul to Rome"],
+  ["PN-120","1","prenotato","prenotare → past · “pre-noted”","reserved / booked"],
+  ["PN-121","1","una camera","noun · fem.","a room"],
+  ["PN-122","1","un tavolo","noun · masc.","a table"],
+  ["PN-123","1","Ho prenotato un tavolo.","past with avere","I reserved a table"],
+  ["PN-124","1","hai","avere · you (informal)","you have (informal)"],
+  ["PN-125","1","avete","avere · you (plural)","you have (plural)"],
+  ["PN-126","1","abbiamo","avere · noi","we have"],
+  ["PN-127","1","hanno","avere · loro","they have"],
+  ["PN-128","1","parlato","parlare → past","spoken"],
+  ["PN-129","1","comprato","comprare → past","bought"],
+  ["PN-130","1","lo → l’","“it” · contracts before avere","it"],
+  ["PN-131","1","L’abbiamo comprato.","past with avere","we bought it"],
+  ["PN-132","1","capito","capire → past · -IRE takes the -ito from “mosquito”","understood"],
+  ["PN-133","1","Non l’hanno capito.","past with avere","they haven't understood it"],
+  ["PN-134","1","Non mi hanno capito.","mi = me","they haven't understood me"],
+  ["PN-135","1","venduto","vendere → past · -ERE takes the -uto from “Pluto”","sold"],
+  ["PN-136","1","Non l’abbiamo venduto.","past with avere","we haven't sold it"],
+  /* Section 2 · The Past with ESSERE */
+  ["PN-201","2","sono","essere · io (and loro)","I am / they are"],
+  ["PN-202","2","arrivare","going/coming verbs make the past with essere","to arrive"],
+  ["PN-203","2","Sono arrivato.","said by a man · Mario rule","I arrived / I have arrived (man speaking)"],
+  ["PN-204","2","un risotto → due risotti","paparazzi rule: masc. -o → -i in the plural","one risotto → two risottos"],
+  ["PN-205","2","Sono arrivata.","said by a woman · Maria rule","I arrived (woman speaking)"],
+  ["PN-206","2","una pizza → due pizze","A&E rule: fem. -a → -e in the plural","one pizza → two pizzas"],
+  ["PN-207","2","siamo","essere · noi","we are"],
+  ["PN-208","2","Siamo arrivati.","two or more men · paparazzi rule","we arrived (men speaking)"],
+  ["PN-209","2","andare","going/coming verb · past with essere","to go"],
+  ["PN-210","2","Sono andato.","said by a man","I went / I have gone (man speaking)"],
+  ["PN-211","2","Siamo arrivate.","two or more women · A&E rule","we arrived (women speaking)"],
+  ["PN-212","2","è","essere · you (formal) / he / she","you are (formal) / he is / she is"],
+  ["PN-213","2","È arrivato.","said to or about a man","you have arrived (formal) / he has arrived"],
+  ["PN-214","2","Sono andata.","said by a woman","I went (woman speaking)"],
+  ["PN-215","2","partire","going/coming verb · past with essere","to leave / to depart"],
+  ["PN-216","2","Sono partito.","said by a man","I left / I have left (man speaking)"],
+  ["PN-217","2","Siamo andati.","two or more men","we went (men speaking)"],
+  ["PN-218","2","È arrivata.","said to or about a woman","you have arrived (formal) / she has arrived"],
+  ["PN-219","2","Siamo partite.","two or more women","we left (women speaking)"],
+  ["PN-220","2","Sono arrivati.","about two or more men","they arrived (men)"],
+  ["PN-221","2","Sono arrivate.","about two or more women","they arrived (women)"],
+  /* Section 3 · The Present */
+  ["PN-301","3","tipico","English -IC / -ICAL → Italian -ICO","typical"],
+  ["PN-302","3","È fantastico!","è = it is","it's fantastic!"],
+  ["PN-303","3","romantico","-ICO word","romantic"],
+  ["PN-304","3","Non è romantico.","non + è","it's not romantic"],
+  ["PN-305","3","vorrei","the polite opener · + infinitive","I would like"],
+  ["PN-306","3","Vorrei visitare Roma.","vorrei + infinitive","I would like to visit Rome"],
+  ["PN-307","3","Vorrei prenotare un tavolo.","vorrei + infinitive","I'd like to reserve a table"],
+  ["PN-308","3","due notti","time expression","two nights"],
+  ["PN-309","3","due persone","noun","two people"],
+  ["PN-310","3","Vorrei una camera per due notti.","vorrei + noun","I'd like a room for two nights"],
+  ["PN-311","3","perché","one word, two jobs","because / why"],
+  ["PN-312","3","se","conjunction","if"],
+  ["PN-313","3","ma","conjunction","but"],
+  ["PN-314","3","sapere","verb","to know"],
+  ["PN-315","3","vedere","verb","to see"],
+  ["PN-316","3","Vorrei sapere se è romantico.","vorrei sapere se…","I'd like to know if it's romantic"],
+  ["PN-317","3","voglio","volere · io","I want"],
+  ["PN-318","3","lì","adverb","there"],
+  ["PN-319","3","con Lei","preposition","with you (formal)"],
+  ["PN-320","3","Voglio andare lì con Lei.","voglio + infinitive","I want to go there with you"],
+  ["PN-321","3","vuole","volere · you (formal) / he / she","you want (formal) / he wants / she wants"],
+  ["PN-322","3","vuoi","volere · you (informal)","you want (informal)"],
+  ["PN-323","3","vogliamo","volere · noi","we want"],
+  ["PN-324","3","volete","volere · you (plural)","you want (plural)"],
+  ["PN-325","3","vogliono","volere · loro","they want"],
+  ["PN-326","3","uscire","verb","to go out"],
+  ["PN-327","3","adesso","time word","now"],
+  ["PN-328","3","più tardi","time word","later"],
+  ["PN-329","3","oggi","time word","today"],
+  ["PN-330","3","domani","time word","tomorrow"],
+  ["PN-331","3","questa sera","time word","this evening"],
+  ["PN-332","3","questa mattina","time word","this morning"],
+  ["PN-333","3","questo pomeriggio","time word","this afternoon"],
+  ["PN-334","3","Non vogliono uscire adesso.","non + volere + infinitive","they don't want to go out now"],
+  ["PN-335","3","posso","potere · io","I can"],
+  ["PN-336","3","può","potere · you (formal) / he / she","you can (formal) / he can / she can"],
+  ["PN-337","3","puoi","potere · you (informal)","you can (informal)"],
+  ["PN-338","3","possiamo","potere · noi","we can"],
+  ["PN-339","3","potete","potere · you (plural)","you can (plural)"],
+  ["PN-340","3","possono","potere · loro","they can"],
+  ["PN-341","3","farlo","fare + attached lo","to do it"],
+  ["PN-342","3","Non possiamo farlo domani.","non + potere + infinitive","we can't do it tomorrow"],
+  ["PN-343","3","Può ripetere, per favore?","survival phrase","can you repeat, please? (formal)"],
+  ["PN-344","3","Non puoi capirmi.","capire + attached mi","you can't understand me (informal)"],
+  ["PN-345","3","devo","dovere · io","I must / I have to"],
+  ["PN-346","3","deve","dovere · you (formal) / he / she","you must (formal) / he must / she must"],
+  ["PN-347","3","devi","dovere · you (informal)","you must (informal)"],
+  ["PN-348","3","dobbiamo","dovere · noi","we must"],
+  ["PN-349","3","dovete","dovere · you (plural)","you must (plural)"],
+  ["PN-350","3","devono","dovere · loro","they must"],
+  ["PN-351","3","Devo prepararlo.","dovere + infinitive with lo","I must prepare it"],
+  ["PN-352","3","Dovete comprarlo.","dovere + infinitive with lo","you must buy it (plural)"],
+  ["PN-353","3","parlo","-ARE present: chop -are, add -o (one's self)","I speak / I am speaking"],
+  ["PN-354","3","parli","-ARE present: add -i (informal)","you speak (informal)"],
+  ["PN-355","3","parla","-ARE present: add -a","he/she speaks / you speak (formal)"],
+  ["PN-356","3","parliamo","-ARE present: add -iamo","we speak"],
+  ["PN-357","3","parlate","-ARE present: change the r to a t","you speak (plural)"],
+  ["PN-358","3","parlano","-ARE present: add -ano","they speak"],
+  ["PN-359","3","Parlo italiano.","present","I speak Italian"],
+  ["PN-360","3","Parla inglese?","raise your voice to ask","do you speak English? (formal)"],
+  ["PN-361","3","Non parliamo inglese.","present","we don't speak English"],
+  ["PN-362","3","mangiare","verb","to eat"],
+  ["PN-363","3","aspettare","verb","to wait"],
+  /* Section 4 · The Future */
+  ["PN-401","4","parlerà","future: spin the ARE → ERÀ","he/she will speak / you will speak (formal)"],
+  ["PN-402","4","comprerà","future -erà","he/she/you (formal) will buy"],
+  ["PN-403","4","parlerò","-erò ← ho (I have)","I will speak"],
+  ["PN-404","4","aspetterà","future -erà","he/she/you (formal) will wait"],
+  ["PN-405","4","comprerò","-erò","I will buy"],
+  ["PN-406","4","parlerai","-erai ← hai","you will speak (informal)"],
+  ["PN-407","4","parleranno","-eranno ← hanno","they will speak"],
+  ["PN-408","4","parlerete","-erete ← avete","you will speak (plural)"],
+  ["PN-409","4","parleremo","-eremo · the one exception","we will speak"],
+  ["PN-410","4","aspetterò","-erò","I will wait"],
+  ["PN-411","4","compreranno","-eranno","they will buy"],
+  ["PN-412","4","Lo comprerò.","lo goes before the future verb","I will buy it"],
+  ["PN-413","4","Lo comprerete.","future","you will buy it (plural)"],
+  ["PN-414","4","Visiterò Roma domani.","future","I will visit Rome tomorrow"],
+  ["PN-415","4","Visiteremo Roma domani.","future","we will visit Rome tomorrow"],
+  ["PN-416","4","con noi","preposition","with us"],
+  ["PN-417","4","Mangerà con noi più tardi.","mangiare → mangerà","she will eat with us later / you will (formal)"],
+  ["PN-418","4","Mangerai con noi più tardi.","future","you will eat with us later (informal)"],
+  ["PN-419","4","Lo prenoterai più tardi.","future","you will book it later (informal)"],
+  ["PN-420","4","Non lo prenoteranno.","non + lo + future","they won't book it"],
+  ["PN-421","4","Non lo prenoteremo più tardi.","future","we won't book it later"],
+  /* Section 5 · Travelling in Italy */
+  ["PN-501","5","Vorrei una camera per due persone per due notti.","at the hotel","I'd like a room for two people for two nights"],
+  ["PN-502","5","con bagno","at the hotel","with (a) bath"],
+  ["PN-503","5","Quant'è?","the all-purpose price question","how much is it?"],
+  ["PN-504","5","cento","number","one hundred"],
+  ["PN-505","5","Posso vedere la camera?","at the hotel","can I see the room?"],
+  ["PN-506","5","È perfetta!","fem. agreement with la camera","it's perfect!"],
+  ["PN-507","5","Il suo nome, per favore.","at the hotel","your name, please"],
+  ["PN-508","5","Posso pagare con la carta di credito?","at the hotel","can I pay by credit card?"],
+  ["PN-509","5","grazie","essential","thank you"],
+  ["PN-510","5","Dov'è il campeggio?","dov'è = where is","where is the campsite?"],
+  ["PN-511","5","qui","adverb","here"],
+  ["PN-512","5","Posso campeggiare qui?","finding a campsite","can I camp here?"],
+  ["PN-513","5","una tenda","noun · fem.","a tent"],
+  ["PN-514","5","dieci","number","ten"],
+  ["PN-515","5","Alla piazza, per favore!","taking a taxi","to the piazza, please!"],
+  ["PN-516","5","otto","number","eight"],
+  ["PN-517","5","Desidera?","what the waiter asks","you desire? (what would you like?)"],
+  ["PN-518","5","Un caffè, per favore.","at the café","a coffee, please"],
+  ["PN-519","5","un vino bianco","at the café","a white wine"],
+  ["PN-520","5","un sandwich","at the café","a sandwich"],
+  ["PN-521","5","sedici","number","sixteen"],
+  ["PN-522","5","Vorrei prenotare un tavolo per due persone.","eating out · on the phone","I'd like to reserve a table for two people"],
+  ["PN-523","5","per le sette","time","for seven o'clock"],
+  ["PN-524","5","Dove posso trovare un taxi?","dove + posso","where can I find a taxi?"],
+  ["PN-525","5","undici","number","eleven"],
+  ["PN-526","5","Ho prenotato.","at the restaurant","I have reserved (a table)"],
+  ["PN-527","5","una bottiglia di vino bianco","ordering","a bottle of white wine"],
+  ["PN-528","5","Una bottiglia di vino bianco e due risotti, per favore.","ordering","a bottle of white wine and two risottos, please"],
+  ["PN-529","5","Dov'è il bagno?","essential","where is the bathroom?"],
+  ["PN-530","5","Altro?","what the waiter asks","anything else?"],
+  ["PN-531","5","il conto","noun · masc.","the bill"],
+  ["PN-532","5","Due caffè e il conto, per favore.","wrapping up","two coffees and the bill, please"],
+  ["PN-533","5","Scusi","getting attention (formal)","excuse me"],
+  ["PN-534","5","l'ufficio turistico","noun · masc.","the tourist office"],
+  ["PN-535","5","Dov'è l'ufficio turistico?","in the street","where is the tourist office?"],
+  ["PN-536","5","di fronte alla cattedrale","location","opposite (in front of) the cathedral"],
+  ["PN-537","5","Ha una mappa di Roma?","at the tourist office","do you have a map of Rome?"],
+  ["PN-538","5","cinque","number","five"],
+  ["PN-539","5","la stazione","noun · fem.","the (train) station"],
+  ["PN-540","5","Può indicarmi sulla mappa?","indicare + attached mi","can you show me on the map?"]
+].map(r => ({ id:r[0], section:r[1], front_it:r[2], front_context:r[3], back_en:r[4] }));
+
+/* ---------- Persistence ---------- */
+const STORE_KEY = 'ripasso_fsrs_v2';   /* v2: Paul Noble core review deck */
+const STATS_KEY = 'ripasso_stats_v1';
+const DIR_KEY = 'ripasso_direction_v1';
+const SECTIONS_KEY = 'ripasso_sections_v1';
+
+function loadFsrsState(){
+  try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch(e){ return {}; }
+}
+function saveFsrsState(state){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function loadStats(){
+  try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || { streak:0, lastActiveDate:null, totalReviews:0, totalLapses:0 }; }
+  catch(e){ return { streak:0, lastActiveDate:null, totalReviews:0, totalLapses:0 }; }
+}
+function saveStats(s){ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }
+
+let fsrsState = loadFsrsState();
+let stats = loadStats();
+let direction = localStorage.getItem(DIR_KEY) || 'IT';
+
+function loadSections(){
+  try{
+    const s = JSON.parse(localStorage.getItem(SECTIONS_KEY));
+    if(Array.isArray(s) && s.length) return s.filter(x=>SECTIONS[x]);
+  } catch(e){}
+  return Object.keys(SECTIONS);
+}
+let activeSections = loadSections();
+function saveSections(){ localStorage.setItem(SECTIONS_KEY, JSON.stringify(activeSections)); }
+
+DECK.forEach(c=>{ if(!fsrsState[c.id]) fsrsState[c.id] = { difficulty:null, stability:null, due:null, last_reviewed:null, lapses:0 }; });
+
+/* ---------- Queue ---------- */
+function isSameDay(a,b){ return a.toDateString() === b.toDateString(); }
+function buildQueue(){
+  const now = new Date();
+  const due = DECK.filter(c=>{
+    if(!activeSections.includes(c.section)) return false;
+    const f = fsrsState[c.id];
+    if(!f.due) return true;
+    return new Date(f.due) <= now;
+  });
+  for(let k=due.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [due[k],due[j]]=[due[j],due[k]]; }
+  return due.map(c=>c.id);
+}
+function nextDueDate(){
+  let min = null;
+  DECK.forEach(c=>{
+    if(!activeSections.includes(c.section)) return;
+    const f = fsrsState[c.id];
+    if(f.due){ const d = new Date(f.due); if(!min || d < min) min = d; }
+  });
+  return min;
+}
+
+let queue = buildQueue();
+let sessionTotal = queue.length;
+let qi = 0;
+let revealed = false;
+
+/* ---------- DOM refs ---------- */
+const card=document.getElementById('card'), cardWrap=document.getElementById('cardWrap'), doneScreen=document.getElementById('doneScreen'), doneSub=document.getElementById('doneSub');
+const frontWord=document.getElementById('frontWord'), frontSub=document.getElementById('frontSub'), answerText=document.getElementById('answerText');
+const meterFill=document.getElementById('meterFill'), cardCount=document.getElementById('cardCount'), streakLabel=document.getElementById('streakLabel');
+const rateBtns=document.querySelectorAll('.rate-btn'), ratingsRow=document.getElementById('ratingsRow');
+const helpFab=document.getElementById('helpFab'), sheetOverlay=document.getElementById('sheetOverlay'), sheetTitle=document.getElementById('sheetTitle'), sheetBody=document.getElementById('sheetBody'), sheetClose=document.getElementById('sheetClose');
+const dirToggle=document.getElementById('dirToggle');
+const intAgain=document.getElementById('intAgain'), intHard=document.getElementById('intHard'), intGood=document.getElementById('intGood'), intEasy=document.getElementById('intEasy');
+
+function cardById(id){ return DECK.find(c=>c.id===id); }
+
+function renderCard(){
+  if(qi >= queue.length){
+    cardWrap.style.display = 'none';
+    ratingsRow.style.display = 'none';
+    doneScreen.classList.add('show');
+    const nd = nextDueDate();
+    doneSub.textContent = nd ? ('next card due ' + nd.toLocaleDateString()) : 'add more cards to keep going';
+    cardCount.textContent = `${sessionTotal} / ${sessionTotal}`;
+    meterFill.style.width = '100%';
+    return;
+  }
+  cardWrap.style.display = '';
+  ratingsRow.style.display = '';
+  doneScreen.classList.remove('show');
+
+  const c = cardById(queue[qi]);
+  card.dataset.id = `§${c.section} · ${c.id}`;
+  card.classList.remove('revealed');
+  revealed = false;
+
+  if(direction === 'IT'){
+    frontWord.textContent = c.front_it; answerText.textContent = c.back_en;
+  } else {
+    frontWord.textContent = c.back_en; answerText.textContent = c.front_it;
+  }
+  frontSub.textContent = c.front_context;
+
+  cardCount.textContent = `${qi+1} / ${sessionTotal}`;
+  meterFill.style.width = `${(qi/sessionTotal)*100}%`;
+  rateBtns.forEach(b=>b.disabled = true);
+
+  const preview = previewIntervals(fsrsState[c.id], new Date());
+  intAgain.textContent = preview[1]; intHard.textContent = preview[2]; intGood.textContent = preview[3]; intEasy.textContent = preview[4];
+}
+
+function reveal(){
+  if(revealed || qi >= queue.length) return;
+  revealed = true;
+  card.classList.add('revealed');
+  rateBtns.forEach(b=>b.disabled = false);
+}
+
+function calendarDayDiff(a, b){
+  const da = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const db = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((db - da) / 86400000);
+}
+function bumpStreak(){
+  const today = new Date();
+  if(!stats.lastActiveDate){ stats.streak = 1; }
+  else{
+    const last = new Date(stats.lastActiveDate);
+    if(isSameDay(last, today)){ /* no change */ }
+    else{
+      stats.streak = calendarDayDiff(last, today) === 1 ? stats.streak + 1 : 1;
+    }
+  }
+  stats.lastActiveDate = today.toISOString();
+}
+
+function grade(g){
+  if(!revealed || qi >= queue.length) return;
+  const c = cardById(queue[qi]);
+  const now = new Date();
+  scheduleCard(fsrsState[c.id], g, now);
+  saveFsrsState(fsrsState);
+
+  stats.totalReviews += 1;
+  if(g === 1){
+    stats.totalLapses += 1;
+    queue.push(c.id);
+    sessionTotal = queue.length;
+  }
+  bumpStreak();
+  saveStats(stats);
+  streakLabel.textContent = 'streak ' + stats.streak;
+
+  qi += 1;
+  setTimeout(renderCard, 120);
+}
+
+function openHelp(){
+  const c = cardById(queue[Math.min(qi, queue.length-1)]);
+  if(!c) return;
+  const sec = SECTIONS[c.section];
+  sheetTitle.textContent = sec.title;
+  sheetBody.textContent = sec.explain;
+  sheetOverlay.classList.add('open');
+}
+function closeHelp(){ sheetOverlay.classList.remove('open'); }
+
+card.addEventListener('click', (e)=>{ if(e.target === helpFab) return; reveal(); });
+helpFab.addEventListener('click', (e)=>{ e.stopPropagation(); openHelp(); });
+sheetClose.addEventListener('click', closeHelp);
+sheetOverlay.addEventListener('click', (e)=>{ if(e.target === sheetOverlay) closeHelp(); });
+
+document.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space'){ e.preventDefault(); reveal(); }
+  if(['1','2','3','4'].includes(e.key)) grade(Number(e.key));
+});
+rateBtns.forEach(b=> b.addEventListener('click', ()=> grade(Number(b.dataset.grade))));
+
+dirToggle.addEventListener('click', ()=>{
+  direction = direction === 'IT' ? 'EN' : 'IT';
+  localStorage.setItem(DIR_KEY, direction);
+  dirToggle.textContent = direction === 'IT' ? 'IT → EN' : 'EN → IT';
+  renderCard();
+});
+dirToggle.textContent = direction === 'IT' ? 'IT → EN' : 'EN → IT';
+
+/* ---------- Hint toggle ---------- */
+const HINTS_KEY = 'ripasso_hints_v1';
+const hintToggle = document.getElementById('hintToggle');
+let hintsOn = localStorage.getItem(HINTS_KEY) !== 'off';
+
+function renderHintState(){
+  document.body.classList.toggle('no-hints', !hintsOn);
+  hintToggle.textContent = hintsOn ? 'HINTS ON' : 'HINTS OFF';
+  hintToggle.classList.toggle('off', !hintsOn);
+}
+hintToggle.addEventListener('click', ()=>{
+  hintsOn = !hintsOn;
+  localStorage.setItem(HINTS_KEY, hintsOn ? 'on' : 'off');
+  renderHintState();
+});
+renderHintState();
+
+/* ---------- Section filter ---------- */
+const secChips = document.querySelectorAll('.sec-chip');
+const allSectionIds = Object.keys(SECTIONS);
+
+function renderChips(){
+  secChips.forEach(chip=>{
+    const s = chip.dataset.section;
+    if(s === 'all'){ chip.classList.toggle('on', activeSections.length === allSectionIds.length); }
+    else { chip.classList.toggle('on', activeSections.includes(s)); }
+  });
+}
+
+function restartSession(){
+  queue = buildQueue();
+  sessionTotal = queue.length;
+  qi = 0;
+  renderCard();
+}
+
+secChips.forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const s = chip.dataset.section;
+    if(s === 'all'){
+      activeSections = allSectionIds.slice();
+    } else if(activeSections.includes(s)){
+      if(activeSections.length === 1) return; /* keep at least one section active */
+      activeSections = activeSections.filter(x=>x!==s);
+    } else {
+      activeSections = allSectionIds.filter(x=> x===s || activeSections.includes(x));
+    }
+    saveSections();
+    renderChips();
+    restartSession();
+  });
+});
+renderChips();
+
+streakLabel.textContent = 'streak ' + (stats.streak || 0);
+renderCard();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+</script>
+</body>
+</html>
