@@ -1,10 +1,11 @@
-const CACHE_NAME = 'ripasso-cache-v3';
+const CACHE_NAME = 'ripasso-cache-v4';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
